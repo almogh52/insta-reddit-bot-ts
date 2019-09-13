@@ -1,0 +1,33 @@
+{
+	"name": "insta-reddit-bot-ts",
+	"version": "1.0.0",
+	"description": "",
+	"main": "dist/bot.js",
+	"scripts": {
+		"start": "tsc && node dist/bot.js",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/almogh52/insta-reddit-bot-ts.git"
+	},
+	"author": "Almog Hamdani",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/almogh52/insta-reddit-bot-ts/issues"
+	},
+	"homepage": "https://github.com/almogh52/insta-reddit-bot-ts#readme",
+	"devDependencies": {
+		"tslint": "^5.20.0",
+		"typescript": "^3.6.3"
+	},
+	"dependencies": {
+		"@types/inquirer": "^6.5.0",
+		"@types/jimp": "^0.2.28",
+		"@types/snoowrap": "^1.19.0",
+		"inquirer": "^7.0.0",
+		"instagram-private-api": "^1.27.0",
+		"jimp": "^0.8.2",
+		"snoowrap": "^1.19.0"
+	}
+}
