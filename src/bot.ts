@@ -49,9 +49,9 @@ async function getNewPosts(): Promise<Array<snoowrap.Submission>> {
 	for await (const subreddit of subreddits) {
 		console.log("Fetching Subreddit r/" + subreddit + "..");
 
-		// Get 8 last hot posts
+		// Get 5 last hot posts
 		const hotPosts = await r.getSubreddit(subreddit).getHot({
-			count: 8
+			count: 5
 		});
 
 		for (const submission of hotPosts) {
@@ -128,5 +128,5 @@ async function uploadPosts() {
 	console.log("Authenticated Successfully!");
 
 	uploadPosts();
-	setInterval(uploadPosts, 1200000);
+	setInterval(uploadPosts, 1800000);
 })();
