@@ -72,18 +72,28 @@ async function uploadPosts() {
 	const newPosts = (await getNewPosts()).sort(() => Math.random() - 0.5);
 
 	// For each new post, upload it
+	console.log("Starting to upload..");
 	for (const newPost of newPosts) {
-		if (newPost.url) {
-			await ig.publish.photo({
-				file: await fitImageToAspecRatio(newPost.url),
-				caption:
-					(newPost.title ? newPost.title + " " : "") +
-					"(" +
-					newPost.subreddit_name_prefixed +
-					")"
-			});
+		if (newPost.url && !newPost.is_video) {
+			try {
+				await ig.publish.photo({
+					file: await fitImageToAspecRatio(newPost.url),
+					caption:
+						(newPost.title ? newPost.title + " " : "") +
+						"(" +
+						newPost.subreddit_name_prefixed +
+						")"
+				});
 
-			console.log("Uploaded submission " + newPost.id);
+				console.log("Uploaded submission " + newPost.id);
+			} catch (ex) {
+				console.log(
+					"An error occurred during the upload of the submission " +
+						newPost.id +
+						". The error was: " +
+						ex
+				);
+			}
 		}
 	}
 }
