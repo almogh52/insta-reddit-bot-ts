@@ -15,14 +15,13 @@ const r = new snoowrap({
 	refreshToken: "65194045-infRn9AHuJHxYaakOnHBerrdQp0"
 });
 
-const subreddits = ["memes", "dankmemes", "me_irl", "dank_meme", "funny"];
+const subreddits = ["memes", "dankmemes", "me_irl", "dank_meme"];
 
 var subredditCache = new Object({
 	memes: new Array<String>(),
 	dankmemes: new Array<String>(),
 	me_irl: new Array<String>(),
-	dank_meme: new Array<String>(),
-	funny: new Array<String>()
+	dank_meme: new Array<String>()
 });
 
 // Generate device
@@ -50,9 +49,9 @@ async function getNewPosts(): Promise<Array<snoowrap.Submission>> {
 	for await (const subreddit of subreddits) {
 		console.log("Fetching Subreddit r/" + subreddit + "..");
 
-		// Get 10 last hot posts
+		// Get 8 last hot posts
 		const hotPosts = await r.getSubreddit(subreddit).getHot({
-			count: 10
+			count: 8
 		});
 
 		for (const submission of hotPosts) {
@@ -74,7 +73,7 @@ async function uploadPosts() {
 	// For each new post, upload it
 	console.log("Starting to upload..");
 	for (const newPost of newPosts) {
-		if (newPost.url && !newPost.is_video) {
+		if (newPost.url && !newPost.is_video && !newPost.selftext) {
 			try {
 				await ig.publish.photo({
 					file: await fitImageToAspecRatio(newPost.url),
