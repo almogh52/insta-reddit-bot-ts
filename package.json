@@ -18,8 +18,7 @@
 	},
 	"homepage": "https://github.com/almogh52/insta-reddit-bot-ts#readme",
 	"devDependencies": {
-		"tslint": "^5.20.0",
-		"typescript": "^3.6.3"
+		"tslint": "^5.20.0"
 	},
 	"dependencies": {
 		"@types/inquirer": "^6.5.0",
@@ -28,6 +27,7 @@
 		"inquirer": "^7.0.0",
 		"instagram-private-api": "^1.27.0",
 		"jimp": "^0.8.2",
-		"snoowrap": "^1.19.0"
+		"snoowrap": "^1.19.0",
+		"typescript": "^3.6.3"
 	}
 }
