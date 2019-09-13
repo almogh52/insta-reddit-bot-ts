@@ -97,6 +97,15 @@ async function uploadPosts() {
 	}
 }
 
+function cleanCache() {
+	subredditCache = new Object({
+		memes: new Array<String>(),
+		dankmemes: new Array<String>(),
+		me_irl: new Array<String>(),
+		dank_meme: new Array<String>()
+	});
+}
+
 (async () => {
 	// Execute all requests prior to authorization in the real Android application
 	// Not required but recommended
@@ -129,4 +138,5 @@ async function uploadPosts() {
 
 	uploadPosts();
 	setInterval(uploadPosts, 1800000);
+	setInterval(cleanCache, 172440000);
 })();
