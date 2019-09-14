@@ -49,18 +49,19 @@ async function getNewPosts(): Promise<Array<snoowrap.Submission>> {
 	for await (const subreddit of subreddits) {
 		console.log("Fetching Subreddit r/" + subreddit + "..");
 
-		// Get 5 last hot posts
-		const hotPosts = await r.getSubreddit(subreddit).getHot({
-			count: 5
-		});
+		// Get hot posts
+		var hotPosts = await r.getSubreddit(subreddit).getHot();
 
-		for (const submission of hotPosts) {
-			// If the submission isn't used yet, add it to the list of posts
-			if (!subredditCache[subreddit].includes(submission.id)) {
-				subredditCache[subreddit].push(submission.id);
-				newPosts.push(submission);
-			}
-		}
+		// Remove all used submissions
+		var hotPostsList = hotPosts.filter(
+			submission => !subredditCache[subreddit].includes(submission.id)
+		);
+
+		// Get only 5 submissions
+		hotPostsList = hotPostsList.slice(0, 5);
+
+		// Add all new submissions to the new posts array
+		newPosts = newPosts.concat(hotPostsList)
 	}
 
 	return newPosts;
