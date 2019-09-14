@@ -3,8 +3,8 @@ import inquirer from "inquirer";
 import Jimp from "jimp";
 import snoowrap from "snoowrap";
 
-const igUsername = "rddimemes";
-const igPassword = "RedditMemes123";
+const igUsername = process.env.IG_USERNAME;
+const igPassword = process.env.IG_PASSWORD;
 
 const ig = new IgApiClient();
 
