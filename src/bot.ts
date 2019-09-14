@@ -96,6 +96,8 @@ async function uploadPosts() {
 			}
 		}
 	}
+
+	console.log("Finished Uploading Posts..");
 }
 
 function cleanCache() {
