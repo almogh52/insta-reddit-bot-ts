@@ -61,7 +61,7 @@ async function getNewPosts(): Promise<Array<snoowrap.Submission>> {
 		hotPostsList = hotPostsList.slice(0, 5);
 
 		// Add all new submissions to the new posts array
-		newPosts = newPosts.concat(hotPostsList)
+		newPosts = newPosts.concat(hotPostsList);
 	}
 
 	return newPosts;
@@ -85,7 +85,14 @@ async function uploadPosts() {
 						")"
 				});
 
-				console.log("Uploaded submission " + newPost.id);
+				console.log(
+					"[" +
+						(newPosts.indexOf(newPost) + 1) +
+						"/" +
+						newPosts.length +
+						"] Uploaded submission " +
+						newPost.id
+				);
 			} catch (ex) {
 				console.log(
 					"An error occurred during the upload of the submission " +
