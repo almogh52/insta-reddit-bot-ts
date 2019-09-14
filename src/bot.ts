@@ -17,12 +17,9 @@ const r = new snoowrap({
 
 const subreddits = ["memes", "dankmemes", "me_irl", "dank_meme"];
 
-var subredditCache = new Object({
-	memes: new Array<String>(),
-	dankmemes: new Array<String>(),
-	me_irl: new Array<String>(),
-	dank_meme: new Array<String>()
-});
+var submissionCache = new Array<String>();
+
+var postsQueue = new Array<snoowrap.Submission>();
 
 // Generate device
 ig.state.generateDevice(igUsername);
@@ -43,8 +40,10 @@ async function fitImageToAspecRatio(img: string): Promise<Buffer> {
 	return buf;
 }
 
-async function getNewPosts(): Promise<Array<snoowrap.Submission>> {
+async function fetchNewPosts() {
 	var newPosts = new Array<snoowrap.Submission>();
+
+	console.log("Fetching Posts..");
 
 	for await (const subreddit of subreddits) {
 		console.log("Fetching Subreddit r/" + subreddit + "..");
@@ -54,22 +53,38 @@ async function getNewPosts(): Promise<Array<snoowrap.Submission>> {
 
 		// Remove all used submissions
 		var hotPostsList = hotPosts.filter(
-			submission => !subredditCache[subreddit].includes(submission.id)
+			submission => !submissionCache.includes(submission.id)
 		);
 
-		// Get only 5 submissions
-		hotPostsList = hotPostsList.slice(0, 5);
+		// Sort the submissions by their upvotes
+		hotPostsList = hotPostsList.sort((a, b) => (a.ups > b.ups ? -1 : 1));
+
+		// Take only the top 3
+		hotPostsList = hotPostsList.splice(0, 3);
 
 		// Add all new submissions to the new posts array
 		newPosts = newPosts.concat(hotPostsList);
 	}
 
-	return newPosts;
+	// Shuffle the new posts
+	newPosts.sort(() => Math.random() - 0.5);
+
+	// Save all the new posts to the submission cache
+	submissionCache = submissionCache.concat(newPosts.map(post => post.id));
+
+	// Add the new submissions to the queue
+	postsQueue = postsQueue.concat(newPosts);
 }
 
 async function uploadPosts() {
-	console.log("Fetching Posts..");
-	const newPosts = (await getNewPosts()).sort(() => Math.random() - 0.5);
+	let newPosts;
+
+	try {
+		newPosts = [postsQueue.shift(), postsQueue.shift()];
+	} catch {
+		console.log("Unable to get new posts to upload..");
+		return;
+	}
 
 	// For each new post, upload it
 	console.log("Starting to upload..");
@@ -101,6 +116,15 @@ async function uploadPosts() {
 						ex
 				);
 			}
+		} else {
+			console.log(
+				"[" +
+					(newPosts.indexOf(newPost) + 1) +
+					"/" +
+					newPosts.length +
+					"] Ignoring submission " +
+					newPost.id
+			);
 		}
 	}
 
@@ -108,12 +132,7 @@ async function uploadPosts() {
 }
 
 function cleanCache() {
-	subredditCache = new Object({
-		memes: new Array<String>(),
-		dankmemes: new Array<String>(),
-		me_irl: new Array<String>(),
-		dank_meme: new Array<String>()
-	});
+	submissionCache = new Array<String>();
 }
 
 (async () => {
@@ -146,7 +165,9 @@ function cleanCache() {
 
 	console.log("Authenticated Successfully!");
 
-	uploadPosts();
-	setInterval(uploadPosts, 1800000);
-	setInterval(cleanCache, 172440000);
+	setInterval(fetchNewPosts, 3540000); // Fetch new posts every 59 minutes
+	setInterval(uploadPosts, 600000); // Upload new posts every 10 minutes
+	setInterval(cleanCache, 172440000); // Clean the cache every 2 days
+	await fetchNewPosts();
+	await uploadPosts();
 })();
