@@ -33,7 +33,7 @@ async function fitImageToAspecRatio(img: string): Promise<Buffer> {
 
 	// Convert to buffer
 	var buf;
-	await image.getBuffer(Jimp.MIME_JPEG, (_, b) => {
+	await image.rgba(false).background(0xFFFFFFFF).getBuffer(Jimp.MIME_JPEG, (_, b) => {
 		buf = b;
 	});
 
@@ -164,6 +164,8 @@ function cleanCache() {
 	process.nextTick(async () => await ig.simulate.postLoginFlow());
 
 	console.log("Authenticated Successfully!");
+
+	await fitImageToAspecRatio("http://www.eagledroneimaging.com/images/flag_colors_sky_noeagle%201200x200.jpg")
 
 	setInterval(fetchNewPosts, 3540000); // Fetch new posts every 59 minutes
 	setInterval(uploadPosts, 600000); // Upload new posts every 10 minutes
