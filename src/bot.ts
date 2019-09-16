@@ -33,9 +33,12 @@ async function fitImageToAspecRatio(img: string): Promise<Buffer> {
 
 	// Convert to buffer
 	var buf;
-	await image.rgba(false).background(0xFFFFFFFF).getBuffer(Jimp.MIME_JPEG, (_, b) => {
-		buf = b;
-	});
+	await image
+		.rgba(false)
+		.background(0xffffffff)
+		.getBuffer(Jimp.MIME_JPEG, (_, b) => {
+			buf = b;
+		});
 
 	return buf;
 }
@@ -76,6 +79,21 @@ async function fetchNewPosts() {
 	postsQueue = postsQueue.concat(newPosts);
 }
 
+function createCaption(post: snoowrap.Submission) {
+	const tags =
+		"#meme #memes #funny #memesdaily #dankmemes #lol #funnymemes #dank #like #follow #humor #lmao #dankmeme #love #fortnite #anime #edgymemes #comedy #f #fun #instagram #dailymemes #offensivememes #edgy #ol #funnymeme #cringe #haha #minecraft #bhfyp";
+
+	return (
+		(post.title ? post.title + " " : "Title goes here.. ") +
+		"\n·\n·\n·\nUploaded to " +
+		post.subreddit_name_prefixed +
+		"by u/" +
+		post.author.name +
+		"\n·\n·\n" +
+		tags
+	);
+}
+
 async function uploadPosts() {
 	let newPosts;
 
@@ -93,11 +111,7 @@ async function uploadPosts() {
 			try {
 				await ig.publish.photo({
 					file: await fitImageToAspecRatio(newPost.url),
-					caption:
-						(newPost.title ? newPost.title + " " : "") +
-						"(" +
-						newPost.subreddit_name_prefixed +
-						")"
+					caption: createCaption(newPost)
 				});
 
 				console.log(
@@ -165,7 +179,9 @@ function cleanCache() {
 
 	console.log("Authenticated Successfully!");
 
-	await fitImageToAspecRatio("http://www.eagledroneimaging.com/images/flag_colors_sky_noeagle%201200x200.jpg")
+	await fitImageToAspecRatio(
+		"http://www.eagledroneimaging.com/images/flag_colors_sky_noeagle%201200x200.jpg"
+	);
 
 	setInterval(fetchNewPosts, 3540000); // Fetch new posts every 59 minutes
 	setInterval(uploadPosts, 600000); // Upload new posts every 10 minutes
