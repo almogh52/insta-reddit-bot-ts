@@ -87,7 +87,7 @@ function createCaption(post: snoowrap.Submission) {
 		(post.title ? post.title + " " : "Title goes here.. ") +
 		"\n·\n·\n·\nUploaded to " +
 		post.subreddit_name_prefixed +
-		"by u/" +
+		" by u/" +
 		post.author.name +
 		"\n·\n·\n" +
 		tags
