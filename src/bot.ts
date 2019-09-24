@@ -3,19 +3,45 @@ import inquirer from "inquirer";
 import Jimp from "jimp";
 import snoowrap from "snoowrap";
 
+console.log("Instagram-Reddit-Bot created by Almog Hamdani ©\n");
+
+console.log("Reading settings..");
+
 const igUsername = process.env.IG_USERNAME;
 const igPassword = process.env.IG_PASSWORD;
 
+const reddit_settings = {
+	userAgent: process.env.RD_USER_AGENT,
+	clientId: process.env.RD_CLIENT_ID,
+	clientSecret: process.env.RD_CLIENT_SECRECT,
+	refreshToken: process.env.RD_REFRESH_TOKEN
+};
+
+const subreddits = process.env.SUBREDDITS.split(" ");
+const tags = process.env.TAGS.split(" ").map(tag => "#" + tag);
+
+const fetchSubredditsPostsTime = Number.parseInt(
+	process.env.FETCH_SUBREDDITS_TIME
+);
+const subredditPostFetch = Number.parseInt(process.env.SUBREDDIT_POST_FETCH);
+const uploadPostsTime = Number.parseInt(process.env.UPLOAD_POSTS_TIME);
+const postsAmountPerUpload = Number.parseInt(
+	process.env.POSTS_AMOUNT_PER_UPLOAD
+);
+const cleanPostsCacheDays = Number.parseInt(process.env.CLEAN_CACHE_DAYS);
+
+console.log("Instagram Username: %s.", igUsername);
+console.log("Reddit User Agent: %s.", reddit_settings.userAgent);
+console.log("Reddit Client ID: %s.", reddit_settings.clientId);
+console.log("Subreddits: %s.", subreddits.join(", "));
+console.log("Tags: %s.", tags.join(", "));
+console.log("Fetching %d posts from each subreddit every %d minutes.", subredditPostFetch, fetchSubredditsPostsTime);
+console.log("Uploading %d posts every %d minutes.", postsAmountPerUpload, uploadPostsTime);
+console.log("Cleaning cache every %d days.", cleanPostsCacheDays);
+console.log("Reading settings done..\n");
+
 const ig = new IgApiClient();
-
-const r = new snoowrap({
-	userAgent: "posix:com.almoghamdani.instabot:v1.0.0 (by /u/almogh52)",
-	clientId: "3Ih7MLWXCRIzrg",
-	clientSecret: "SfdheBFKkVybn9ZwE3tWgSqkSSo",
-	refreshToken: "65194045-infRn9AHuJHxYaakOnHBerrdQp0"
-});
-
-const subreddits = ["memes", "dankmemes", "me_irl", "dank_meme"];
+const r = new snoowrap(reddit_settings);
 
 var submissionCache = new Array<String>();
 
@@ -46,10 +72,10 @@ async function fitImageToAspecRatio(img: string): Promise<Buffer> {
 async function fetchNewPosts() {
 	var newPosts = new Array<snoowrap.Submission>();
 
-	console.log("Fetching Posts..");
+	console.log("Fetching posts..");
 
 	for await (const subreddit of subreddits) {
-		console.log("Fetching Subreddit r/" + subreddit + "..");
+		console.log("Fetching subreddit r/" + subreddit + "..");
 
 		// Get hot posts
 		var hotPosts = await r.getSubreddit(subreddit).getHot();
@@ -62,8 +88,8 @@ async function fetchNewPosts() {
 		// Sort the submissions by their upvotes
 		hotPostsList = hotPostsList.sort((a, b) => (a.ups > b.ups ? -1 : 1));
 
-		// Take only the top 3
-		hotPostsList = hotPostsList.splice(0, 3);
+		// Take only the top
+		hotPostsList = hotPostsList.splice(0, subredditPostFetch);
 
 		// Add all new submissions to the new posts array
 		newPosts = newPosts.concat(hotPostsList);
@@ -77,20 +103,19 @@ async function fetchNewPosts() {
 
 	// Add the new submissions to the queue
 	postsQueue = postsQueue.concat(newPosts);
+
+	console.log("Finished fetching posts..")
 }
 
 function createCaption(post: snoowrap.Submission) {
-	const tags =
-		"#meme #memes #funny #memesdaily #dankmemes #lol #funnymemes #dank #like #follow #humor #lmao #dankmeme #love #fortnite #anime #edgymemes #comedy #f #fun #instagram #dailymemes #offensivememes #edgy #ol #funnymeme #cringe #haha #minecraft #bhfyp";
-
 	return (
 		(post.title ? post.title + " " : "Title goes here.. ") +
-		"\n·\n·\n·\nUploaded to " +
+		"\n\u2063\n\u2063\n\u2063\nUploaded to " +
 		post.subreddit_name_prefixed +
 		" by u/" +
 		post.author.name +
-		"\n·\n·\n" +
-		tags
+		"\n\u2063\n" +
+		tags.join(" ")
 	);
 }
 
@@ -98,7 +123,7 @@ async function uploadPosts() {
 	let newPosts;
 
 	try {
-		newPosts = [postsQueue.shift(), postsQueue.shift()];
+		newPosts = [...Array(postsAmountPerUpload)].map(_ => postsQueue.shift());
 	} catch {
 		console.log("Unable to get new posts to upload..");
 		return;
@@ -142,7 +167,7 @@ async function uploadPosts() {
 		}
 	}
 
-	console.log("Finished Uploading Posts..");
+	console.log("Finished uploading posts..");
 }
 
 function cleanCache() {
@@ -179,13 +204,11 @@ function cleanCache() {
 
 	console.log("Authenticated Successfully!");
 
-	await fitImageToAspecRatio(
-		"http://www.eagledroneimaging.com/images/flag_colors_sky_noeagle%201200x200.jpg"
-	);
+	setInterval(fetchNewPosts, (fetchSubredditsPostsTime - 1) * 60 * 60 * 1000); // Fetch new posts interval
+	setInterval(uploadPosts, uploadPostsTime * 60 * 1000); // Upload new posts interval
+	setInterval(cleanCache, cleanPostsCacheDays * 24 * 60 * 60 * 1000); // Clean the cache every 2 days
 
-	setInterval(fetchNewPosts, 3540000); // Fetch new posts every 59 minutes
-	setInterval(uploadPosts, 600000); // Upload new posts every 10 minutes
-	setInterval(cleanCache, 172440000); // Clean the cache every 2 days
+	// Initial fetch and upload
 	await fetchNewPosts();
 	await uploadPosts();
 })();
