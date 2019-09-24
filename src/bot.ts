@@ -30,14 +30,25 @@ const postsAmountPerUpload = Number.parseInt(
 );
 const cleanPostsCacheDays = Number.parseInt(process.env.CLEAN_CACHE_DAYS);
 
+const followTagName = process.env.FOLLOW_TAG;
+
 console.log("Instagram Username: %s.", igUsername);
 console.log("Reddit User Agent: %s.", reddit_settings.userAgent);
 console.log("Reddit Client ID: %s.", reddit_settings.clientId);
 console.log("Subreddits: %s.", subreddits.join(", "));
 console.log("Tags: %s.", tags.join(", "));
-console.log("Fetching %d posts from each subreddit every %d minutes.", subredditPostFetch, fetchSubredditsPostsTime);
-console.log("Uploading %d posts every %d minutes.", postsAmountPerUpload, uploadPostsTime);
+console.log(
+	"Fetching %d posts from each subreddit every %d minutes.",
+	subredditPostFetch,
+	fetchSubredditsPostsTime
+);
+console.log(
+	"Uploading %d posts every %d minutes.",
+	postsAmountPerUpload,
+	uploadPostsTime
+);
 console.log("Cleaning cache every %d days.", cleanPostsCacheDays);
+console.log("Following Tag: %s", followTagName ? followTagName : "No");
 console.log("Reading settings done..\n");
 
 const ig = new IgApiClient();
@@ -104,7 +115,7 @@ async function fetchNewPosts() {
 	// Add the new submissions to the queue
 	postsQueue = postsQueue.concat(newPosts);
 
-	console.log("Finished fetching posts..")
+	console.log("Finished fetching posts..");
 }
 
 function createCaption(post: snoowrap.Submission) {
@@ -170,6 +181,33 @@ async function uploadPosts() {
 	console.log("Finished uploading posts..");
 }
 
+async function followTag() {
+	// Get the feed of the tag
+	const feed = ig.feed.tag(followTagName);
+
+	console.log("Started following tag: %s.", "#" + followTagName);
+
+	while (true) {
+		// Get the current page items
+		await feed
+			.items()
+			.then(async items => {
+				// For each item, follow it's user
+				for (const item of items) {
+					await ig.friendship.create(item.user.pk);
+					console.log("Followed user %s.", item.user.username);
+
+					// Wait a little to not get banned (theory)
+					await new Promise(resolve => setTimeout(resolve, 200));
+				}
+			})
+			.catch(
+				async () =>
+					await new Promise(resolve => setTimeout(resolve, 10 * 60 * 1000))
+			);
+	}
+}
+
 function cleanCache() {
 	submissionCache = new Array<String>();
 }
@@ -207,6 +245,11 @@ function cleanCache() {
 	setInterval(fetchNewPosts, (fetchSubredditsPostsTime - 1) * 60 * 60 * 1000); // Fetch new posts interval
 	setInterval(uploadPosts, uploadPostsTime * 60 * 1000); // Upload new posts interval
 	setInterval(cleanCache, cleanPostsCacheDays * 24 * 60 * 60 * 1000); // Clean the cache every 2 days
+
+	// If there is a tag to follow, start the follower in the background
+	if (followTagName) {
+		followTag();
+	}
 
 	// Initial fetch and upload
 	await fetchNewPosts();
