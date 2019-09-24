@@ -201,10 +201,10 @@ async function followTag() {
 					await new Promise(resolve => setTimeout(resolve, 200));
 				}
 			})
-			.catch(
-				async () =>
-					await new Promise(resolve => setTimeout(resolve, 10 * 60 * 1000))
-			);
+			.catch(async () => {
+				console.log("Following users errored. Waiting..");
+				await new Promise(resolve => setTimeout(resolve, 10 * 60 * 1000));
+			});
 	}
 }
 
