@@ -242,7 +242,7 @@ function cleanCache() {
 
 	console.log("Authenticated Successfully!");
 
-	setInterval(fetchNewPosts, (fetchSubredditsPostsTime - 1) * 60 * 60 * 1000); // Fetch new posts interval
+	setInterval(fetchNewPosts, (fetchSubredditsPostsTime - 1) * 60 * 1000); // Fetch new posts interval
 	setInterval(uploadPosts, uploadPostsTime * 60 * 1000); // Upload new posts interval
 	setInterval(cleanCache, cleanPostsCacheDays * 24 * 60 * 60 * 1000); // Clean the cache every 2 days
 
