@@ -1,11 +1,34 @@
 import { IgApiClient } from "instagram-private-api";
+import { UserFeedResponseItemsItem } from "instagram-private-api/dist/responses";
 import inquirer from "inquirer";
 import Jimp from "jimp";
 import snoowrap from "snoowrap";
+import { createLogger, format, transports } from "winston";
+
+const { splat, colorize, label, combine, timestamp, printf } = format;
+
+const logFormat = printf(({ level, message, label, timestamp }) => {
+	return `${timestamp} [${label}] ${level}: ${message}`;
+});
+
+function createLoggerConfiguration(loggerName): object {
+	return {
+		format: combine(
+			colorize(),
+			label({ label: loggerName }),
+			timestamp(),
+			splat(),
+			logFormat
+		),
+		transports: [new transports.Console()]
+	};
+}
+
+const botLogger = createLogger(createLoggerConfiguration("Bot"));
 
 console.log("Instagram-Reddit-Bot created by Almog Hamdani ©\n");
 
-console.log("Reading settings..");
+botLogger.info("Reading settings..");
 
 const igUsername = process.env.IG_USERNAME;
 const igPassword = process.env.IG_PASSWORD;
@@ -31,25 +54,34 @@ const postsAmountPerUpload = Number.parseInt(
 const cleanPostsCacheDays = Number.parseInt(process.env.CLEAN_CACHE_DAYS);
 
 const followTagName = process.env.FOLLOW_TAG;
+const followAmountOfLikes = followTagName
+	? Number.parseInt(process.env.FOLLOW_AMOUNT_OF_LIKES)
+	: 0;
 
-console.log("Instagram Username: %s.", igUsername);
-console.log("Reddit User Agent: %s.", reddit_settings.userAgent);
-console.log("Reddit Client ID: %s.", reddit_settings.clientId);
-console.log("Subreddits: %s.", subreddits.join(", "));
-console.log("Tags: %s.", tags.join(", "));
-console.log(
+botLogger.info("Instagram Username: %s.", igUsername);
+botLogger.info("Reddit User Agent: %s.", reddit_settings.userAgent);
+botLogger.info("Reddit Client ID: %s.", reddit_settings.clientId);
+botLogger.info("Subreddits: %s.", subreddits.join(", "));
+botLogger.info("Tags: %s.", tags.join(", "));
+botLogger.info(
 	"Fetching %d posts from each subreddit every %d minutes.",
 	subredditPostFetch,
 	fetchSubredditsPostsTime
 );
-console.log(
+botLogger.info(
 	"Uploading %d posts every %d minutes.",
 	postsAmountPerUpload,
 	uploadPostsTime
 );
-console.log("Cleaning cache every %d days.", cleanPostsCacheDays);
-console.log("Following Tag: %s", followTagName ? followTagName : "No");
-console.log("Reading settings done..\n");
+botLogger.info("Cleaning cache every %d days.", cleanPostsCacheDays);
+botLogger.info("Following Tag: #%s.", followTagName ? followTagName : "No");
+if (followTagName) {
+	botLogger.info(
+		"Follower - Amount of likes per user: %d.",
+		followAmountOfLikes
+	);
+}
+botLogger.info("Reading settings done..\n");
 
 const ig = new IgApiClient();
 const r = new snoowrap(reddit_settings);
@@ -81,12 +113,16 @@ async function fitImageToAspecRatio(img: string): Promise<Buffer> {
 }
 
 async function fetchNewPosts() {
+	const logger = createLogger(
+		createLoggerConfiguration("Reddit Subreddit Fetcher")
+	);
+
 	var newPosts = new Array<snoowrap.Submission>();
 
-	console.log("Fetching posts..");
+	logger.info("Fetching posts..");
 
 	for await (const subreddit of subreddits) {
-		console.log("Fetching subreddit r/" + subreddit + "..");
+		logger.info("Fetching subreddit r/" + subreddit + "..");
 
 		// Get hot posts
 		var hotPosts = await r.getSubreddit(subreddit).getHot();
@@ -115,7 +151,7 @@ async function fetchNewPosts() {
 	// Add the new submissions to the queue
 	postsQueue = postsQueue.concat(newPosts);
 
-	console.log("Finished fetching posts..");
+	logger.info("Finished fetching posts..");
 }
 
 function createCaption(post: snoowrap.Submission) {
@@ -131,17 +167,21 @@ function createCaption(post: snoowrap.Submission) {
 }
 
 async function uploadPosts() {
+	const logger = createLogger(
+		createLoggerConfiguration("Instagram Post Uploader")
+	);
+
 	let newPosts;
 
 	try {
 		newPosts = [...Array(postsAmountPerUpload)].map(_ => postsQueue.shift());
 	} catch {
-		console.log("Unable to get new posts to upload..");
+		logger.info("Unable to get new posts to upload..");
 		return;
 	}
 
 	// For each new post, upload it
-	console.log("Starting to upload..");
+	logger.info("Starting to upload..");
 	for (const newPost of newPosts) {
 		if (newPost.url && !newPost.is_video && !newPost.selftext) {
 			try {
@@ -150,7 +190,7 @@ async function uploadPosts() {
 					caption: createCaption(newPost)
 				});
 
-				console.log(
+				logger.info(
 					"[" +
 						(newPosts.indexOf(newPost) + 1) +
 						"/" +
@@ -159,7 +199,7 @@ async function uploadPosts() {
 						newPost.id
 				);
 			} catch (ex) {
-				console.log(
+				logger.error(
 					"An error occurred during the upload of the submission " +
 						newPost.id +
 						". The error was: " +
@@ -167,7 +207,7 @@ async function uploadPosts() {
 				);
 			}
 		} else {
-			console.log(
+			logger.info(
 				"[" +
 					(newPosts.indexOf(newPost) + 1) +
 					"/" +
@@ -178,14 +218,80 @@ async function uploadPosts() {
 		}
 	}
 
-	console.log("Finished uploading posts..");
+	logger.info("Finished uploading posts..");
+}
+
+async function likePosts(username: string, userPk: number) {
+	const logger = createLogger(
+		createLoggerConfiguration("Instagram Post Liker")
+	);
+
+	const userFeed = ig.feed.user(userPk);
+
+	let posts = new Array<UserFeedResponseItemsItem>();
+
+	// If no likes wanted
+	if (!followAmountOfLikes) {
+		return;
+	}
+
+	try {
+		logger.info("Fetching posts of %s..", username);
+
+		// While there are more posts and we didn't reach the wanted amount of posts
+		while (posts.length < followAmountOfLikes) {
+			try {
+				await userFeed.items().then(newPosts => {
+					posts = posts.concat(newPosts);
+				});
+			} catch {
+				break;
+			}
+		}
+
+		// Get only the wanted amount of posts
+		posts = posts.splice(0, followAmountOfLikes);
+
+		logger.info("Got %d posts of %s..", posts.length, username);
+
+		// For each post, like it
+		for (const post of posts) {
+			await ig.media.like({
+				mediaId: post.id,
+				moduleInfo: {
+					module_name: "profile",
+					user_id: post.user.pk,
+					username: post.user.username
+				},
+				d: 0
+			});
+
+			logger.info(
+				"[%d/%d] Liked post %s of %s.",
+				posts.indexOf(post) + 1,
+				posts.length,
+				post.id,
+				username
+			);
+		}
+	} catch (ex) {
+		logger.error(
+			"An error occurred during liking the posts of %s:\n%s",
+			username,
+			ex
+		);
+	}
 }
 
 async function followTag() {
+	const logger = createLogger(
+		createLoggerConfiguration("Instagram Tag Follower")
+	);
+
 	// Get the feed of the tag
 	const feed = ig.feed.tag(followTagName);
 
-	console.log("Started following tag: %s.", "#" + followTagName);
+	logger.info("Started following tag: %s.", "#" + followTagName);
 
 	while (true) {
 		// Get the current page items
@@ -195,14 +301,17 @@ async function followTag() {
 				// For each item, follow it's user
 				for (const item of items) {
 					await ig.friendship.create(item.user.pk);
-					console.log("Followed user %s.", item.user.username);
+					logger.info("Followed user %s.", item.user.username);
 
-					// Wait a little to not get banned (theory)
-					await new Promise(resolve => setTimeout(resolve, 200));
+					// Start liking the user's posts in the background
+					likePosts(item.user.username, item.user.pk);
+
+					// Wait half a minute before each follow
+					await new Promise(resolve => setTimeout(resolve, 0.5 * 60 * 1000));
 				}
 			})
 			.catch(async () => {
-				console.log("Following users errored. Waiting..");
+				logger.error("Following users errored. Waiting..");
 				await new Promise(resolve => setTimeout(resolve, 10 * 60 * 1000));
 			});
 	}
@@ -223,9 +332,9 @@ function cleanCache() {
 		.user(user.pk)
 		.items()
 		.catch(async () => {
-			console.log(ig.state.checkpoint); // Checkpoint info here
+			botLogger.info(ig.state.checkpoint); // Checkpoint info here
 			await ig.challenge.auto(true); // Requesting sms-code or click "It was me" button
-			console.log(ig.state.challenge); // Challenge info here
+			botLogger.info(ig.state.challenge); // Challenge info here
 			const { code } = await inquirer.prompt([
 				{
 					type: "input",
@@ -233,14 +342,14 @@ function cleanCache() {
 					message: "Enter code"
 				}
 			]);
-			console.log(await ig.challenge.sendSecurityCode(code));
+			botLogger.info(await ig.challenge.sendSecurityCode(code));
 		});
 
 	// The same as preLoginFlow()
 	// Optionally wrap it to process.nextTick so we dont need to wait ending of this bunch of requests
 	process.nextTick(async () => await ig.simulate.postLoginFlow());
 
-	console.log("Authenticated Successfully!");
+	botLogger.info("Authenticated to Instagram Successfully!");
 
 	setInterval(fetchNewPosts, (fetchSubredditsPostsTime - 1) * 60 * 1000); // Fetch new posts interval
 	setInterval(uploadPosts, uploadPostsTime * 60 * 1000); // Upload new posts interval
