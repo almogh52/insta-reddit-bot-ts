@@ -146,10 +146,15 @@ async function fetchNewPosts() {
 	logger.info("Fetching posts..");
 
 	for await (const subreddit of subreddits) {
-		logger.info("Fetching subreddit r/" + subreddit + "..");
+		logger.info("Fetching subreddit r/%s..", subreddit);
 
-		// Get hot posts
-		var hotPosts = await r.getSubreddit(subreddit).getHot();
+		try {
+			// Get hot posts
+			var hotPosts = await r.getSubreddit(subreddit).getHot();
+		} catch (ex) {
+			logger.error("Unable to fetch posts for r/%s.", subreddit);
+			continue;
+		}
 
 		// Remove all used submissions
 		var hotPostsList = hotPosts.filter(
@@ -200,7 +205,7 @@ async function uploadPosts() {
 	try {
 		newPosts = [...Array(postsAmountPerUpload)].map(_ => postsQueue.shift());
 	} catch {
-		logger.info("Unable to get new posts to upload..");
+		logger.error("Unable to get new posts to upload..");
 		return;
 	}
 
