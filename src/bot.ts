@@ -1,10 +1,13 @@
 import { IgApiClient } from "instagram-private-api";
 import { UserFeedResponseItemsItem } from "instagram-private-api/dist/responses";
-import inquirer from "inquirer";
-import Jimp from "jimp";
-import snoowrap from "snoowrap";
-import { createLogger, format, transports } from "winston";
 
+import snoowrap from "snoowrap";
+
+import inquirer from "inquirer";
+
+import Jimp from "jimp";
+
+import { createLogger, format, transports } from "winston";
 const { splat, colorize, label, combine, timestamp, printf } = format;
 
 const logFormat = printf(({ level, message, label, timestamp }) => {
@@ -58,6 +61,16 @@ const followAmountOfLikes = followTagName
 	? Number.parseInt(process.env.FOLLOW_AMOUNT_OF_LIKES)
 	: 0;
 
+const storyDailyPost = Number.parseInt(process.env.STORY_DAILY_POST)
+	? true
+	: false;
+const storyBackgroundUrl = storyDailyPost
+	? process.env.STORY_BACKGROUND_URL
+	: null;
+const storyPostScale = storyDailyPost
+	? Number.parseFloat(process.env.STORY_POST_SCALE_OF_STORY)
+	: 0;
+
 botLogger.info("Instagram Username: %s.", igUsername);
 botLogger.info("Reddit User Agent: %s.", reddit_settings.userAgent);
 botLogger.info("Reddit Client ID: %s.", reddit_settings.clientId);
@@ -74,21 +87,32 @@ botLogger.info(
 	uploadPostsTime
 );
 botLogger.info("Cleaning cache every %d days.", cleanPostsCacheDays);
-botLogger.info("Following Tag: #%s.", followTagName ? followTagName : "No");
+botLogger.info(
+	"Following Tag: %s.",
+	followTagName ? "#" + followTagName : "No"
+);
 if (followTagName) {
 	botLogger.info(
 		"Follower - Amount of likes per user: %d.",
 		followAmountOfLikes
 	);
 }
+botLogger.info("Story daily post: %s.", storyDailyPost ? "ON" : "OFF");
+if (storyDailyPost) {
+	botLogger.info("Story background url: %s.", storyBackgroundUrl);
+	botLogger.info("Story post scale: %d.", storyPostScale);
+}
+
 botLogger.info("Reading settings done..\n");
 
 const ig = new IgApiClient();
 const r = new snoowrap(reddit_settings);
 
 var submissionCache = new Array<String>();
-
 var postsQueue = new Array<snoowrap.Submission>();
+
+let bestSubmission: snoowrap.Submission = null,
+	bestSubmissionMediaId: string = null;
 
 // Generate device
 ig.state.generateDevice(igUsername);
@@ -101,7 +125,7 @@ async function fitImageToAspecRatio(img: string): Promise<Buffer> {
 	image.contain(newImageSize, newImageSize);
 
 	// Convert to buffer
-	var buf;
+	let buf: Buffer;
 	await image
 		.rgba(false)
 		.background(0xffffffff)
@@ -171,7 +195,7 @@ async function uploadPosts() {
 		createLoggerConfiguration("Instagram Post Uploader")
 	);
 
-	let newPosts;
+	let newPosts: Array<snoowrap.Submission>;
 
 	try {
 		newPosts = [...Array(postsAmountPerUpload)].map(_ => postsQueue.shift());
@@ -185,25 +209,31 @@ async function uploadPosts() {
 	for (const newPost of newPosts) {
 		if (newPost.url && !newPost.is_video && !newPost.selftext) {
 			try {
-				await ig.publish.photo({
-					file: await fitImageToAspecRatio(newPost.url),
-					caption: createCaption(newPost)
-				});
+				await ig.publish
+					.photo({
+						file: await fitImageToAspecRatio(newPost.url),
+						caption: createCaption(newPost)
+					})
+					.then(photo => {
+						// Check if the new uploaded post is the new best post
+						if (!bestSubmission || bestSubmission.score < newPost.score) {
+							bestSubmission = newPost;
+							bestSubmissionMediaId = photo.media.pk;
+						}
 
-				logger.info(
-					"[" +
-						(newPosts.indexOf(newPost) + 1) +
-						"/" +
-						newPosts.length +
-						"] Uploaded submission " +
-						newPost.id
-				);
+						logger.info(
+							"[%d/%d] Uploaded submission %s (Post ID: %s).",
+							newPosts.indexOf(newPost) + 1,
+							newPosts.length,
+							newPost.id,
+							photo.media.pk
+						);
+					});
 			} catch (ex) {
 				logger.error(
-					"An error occurred during the upload of the submission " +
-						newPost.id +
-						". The error was: " +
-						ex
+					"An error occurred during the upload of the submission %s. Error:\n%s",
+					newPost.id,
+					ex
 				);
 			}
 		} else {
@@ -270,7 +300,7 @@ async function likePosts(username: string, userPk: number) {
 				"[%d/%d] Liked post %s of %s.",
 				posts.indexOf(post) + 1,
 				posts.length,
-				post.id,
+				post.pk,
 				username
 			);
 		}
@@ -317,6 +347,87 @@ async function followTag() {
 	}
 }
 
+async function postDailyStory() {
+	// Call this function in 24 hours
+	setTimeout(postDailyStory, 24 * 60 * 60 * 1000);
+
+	const logger = createLogger(
+		createLoggerConfiguration("Instagram Daily Story")
+	);
+
+	if (!bestSubmission || !bestSubmissionMediaId) {
+		logger.error("No best submission.");
+
+		return;
+	}
+
+	let bgImg, postImg;
+	logger.info("Downloading story background image..");
+	try {
+		// Read the story background image
+		bgImg = await Jimp.read(storyBackgroundUrl);
+	} catch (ex) {
+		logger.error(
+			"An error occurred fetching the story background image. Error:\n%s",
+			ex
+		);
+		return;
+	}
+
+	logger.info("Downloading post image..");
+	try {
+		// Read the post image
+		postImg = await Jimp.read(bestSubmission.url);
+	} catch (ex) {
+		logger.error("An error occurred fetching the post image. Error:\n%s", ex);
+		return;
+	}
+
+	// Scale the image to fit in the story
+	await postImg.scaleToFit(1080 * storyPostScale, 1920 * storyPostScale);
+
+	// Draw the post image onto the story background image in the center
+	await bgImg.blit(
+		postImg,
+		1080 / 2 - postImg.bitmap.width / 2,
+		1920 / 2 - postImg.bitmap.height / 2
+	);
+
+	let buf: Buffer;
+	await bgImg.rgba(false).getBuffer(Jimp.MIME_JPEG, (_, b) => {
+		buf = b;
+	});
+
+	logger.info(
+		"Uploading daily story with media id %s..",
+		bestSubmissionMediaId
+	);
+	try {
+		// Upload the story
+		await ig.publish.story({
+			file: buf,
+			media: {
+				x: 0.5,
+				y: 0.5,
+				width: storyPostScale,
+				height: storyPostScale,
+				rotation: 0.0,
+				is_sticker: true,
+				media_id: bestSubmissionMediaId
+			}
+		});
+	} catch (ex) {
+		logger.error("An error occurred upload the daily story. Error:\n%s", ex);
+		return;
+	}
+
+	// Reset best submission
+	bestSubmission = null;
+	bestSubmissionMediaId = null;
+
+	logger.info("Daily Story uplaoded.");
+}
+
 function cleanCache() {
 	submissionCache = new Array<String>();
 }
@@ -354,6 +465,16 @@ function cleanCache() {
 	setInterval(fetchNewPosts, (fetchSubredditsPostsTime - 1) * 60 * 1000); // Fetch new posts interval
 	setInterval(uploadPosts, uploadPostsTime * 60 * 1000); // Upload new posts interval
 	setInterval(cleanCache, cleanPostsCacheDays * 24 * 60 * 60 * 1000); // Clean the cache every 2 days
+
+	if (storyDailyPost) {
+		// Schedule the daily story post to be at 12am
+		let now = new Date();
+		setTimeout(
+			postDailyStory,
+			+new Date(now.getFullYear(), now.getMonth(), now.getDate(), 24, 0, 0, 0) -
+				+now
+		);
+	}
 
 	// If there is a tag to follow, start the follower in the background
 	if (followTagName) {
