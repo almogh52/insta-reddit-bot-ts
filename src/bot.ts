@@ -57,6 +57,9 @@ const postsAmountPerUpload = Number.parseInt(
 const cleanPostsCacheDays = Number.parseInt(process.env.CLEAN_CACHE_DAYS);
 
 const followTagName = process.env.FOLLOW_TAG;
+const followTimeout = followTagName
+	? Number.parseInt(process.env.FOLLOW_TIMEOUT)
+	: 0;
 const followAmountOfLikes = followTagName
 	? Number.parseInt(process.env.FOLLOW_AMOUNT_OF_LIKES)
 	: 0;
@@ -92,10 +95,8 @@ botLogger.info(
 	followTagName ? "#" + followTagName : "No"
 );
 if (followTagName) {
-	botLogger.info(
-		"Follower - Amount of likes per user: %d.",
-		followAmountOfLikes
-	);
+	botLogger.info("Waiting %d seconds between each follow.", followTimeout);
+	botLogger.info("Amount of likes per user: %d.", followAmountOfLikes);
 }
 botLogger.info("Story daily post: %s.", storyDailyPost ? "ON" : "OFF");
 if (storyDailyPost) {
@@ -341,8 +342,10 @@ async function followTag() {
 					// Start liking the user's posts in the background
 					likePosts(item.user.username, item.user.pk);
 
-					// Wait half a minute before each follow
-					await new Promise(resolve => setTimeout(resolve, 0.5 * 60 * 1000));
+					// Wait timeout after each follow
+					await new Promise(resolve =>
+						setTimeout(resolve, followTimeout * 1000)
+					);
 				}
 			})
 			.catch(async () => {
