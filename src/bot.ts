@@ -348,8 +348,8 @@ async function followTag() {
 					);
 				}
 			})
-			.catch(async () => {
-				logger.error("Following users errored. Waiting..");
+			.catch(async ex => {
+				logger.error("Following users errored. Error:\n%s\n\nWaiting..", ex);
 				await new Promise(resolve => setTimeout(resolve, 10 * 60 * 1000));
 			});
 	}
