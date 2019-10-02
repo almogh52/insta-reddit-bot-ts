@@ -63,6 +63,9 @@ const followTimeout = followTagName
 const followAmountOfLikes = followTagName
 	? Number.parseInt(process.env.FOLLOW_AMOUNT_OF_LIKES)
 	: 0;
+const followLikeTimeout = followTagName
+	? Number.parseInt(process.env.FOLLOW_LIKE_TIMEOUT)
+	: 0;
 
 const storyDailyPost = Number.parseInt(process.env.STORY_DAILY_POST)
 	? true
@@ -97,6 +100,7 @@ botLogger.info(
 if (followTagName) {
 	botLogger.info("Waiting %d seconds between each follow.", followTimeout);
 	botLogger.info("Amount of likes per user: %d.", followAmountOfLikes);
+	botLogger.info("Waiting %d seconds between each like.", followLikeTimeout);
 }
 botLogger.info("Story daily post: %s.", storyDailyPost ? "ON" : "OFF");
 if (storyDailyPost) {
@@ -309,6 +313,9 @@ async function likePosts(username: string, userPk: number) {
 				post.pk,
 				username
 			);
+
+			// Wait timeout after each like
+			await new Promise(resolve => setTimeout(resolve, followLikeTimeout * 1000));
 		}
 	} catch (ex) {
 		logger.error(
