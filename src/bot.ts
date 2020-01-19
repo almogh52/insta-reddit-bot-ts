@@ -39,7 +39,7 @@ const igPassword = process.env.IG_PASSWORD;
 const reddit_settings = {
 	userAgent: process.env.RD_USER_AGENT,
 	clientId: process.env.RD_CLIENT_ID,
-	clientSecret: process.env.RD_CLIENT_SECRECT,
+	clientSecret: process.env.RD_CLIENT_SECRET,
 	refreshToken: process.env.RD_REFRESH_TOKEN
 };
 
