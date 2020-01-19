@@ -315,7 +315,9 @@ async function likePosts(username: string, userPk: number) {
 			);
 
 			// Wait timeout after each like
-			await new Promise(resolve => setTimeout(resolve, followLikeTimeout * 1000));
+			await new Promise(resolve =>
+				setTimeout(resolve, followLikeTimeout * 1000)
+			);
 		}
 	} catch (ex) {
 		logger.error(
@@ -448,19 +450,33 @@ function cleanCache() {
 }
 
 (async () => {
-	// Execute all requests prior to authorization in the real Android application
-	// Not required but recommended
-	await ig.simulate.preLoginFlow();
-	const user = await ig.account.login(igUsername, igPassword);
+	let user;
+
+	try {
+		// Execute all requests prior to authorization in the real Android application
+		// Not required but recommended
+		await ig.simulate.preLoginFlow();
+		user = await ig.account.login(igUsername, igPassword);
+	} catch {
+		botLogger.info(ig.state.checkpoint.message); // Checkpoint info here
+		await ig.challenge.auto(true); // Requesting sms-code or click "It was me" button
+		const { code } = await inquirer.prompt([
+			{
+				type: "input",
+				name: "code",
+				message: "Enter code"
+			}
+		]);
+		user = botLogger.info(await ig.challenge.sendSecurityCode(code));
+	}
 
 	// Trying to get the feed to check for challange
 	await ig.feed
 		.user(user.pk)
 		.items()
 		.catch(async () => {
-			botLogger.info(ig.state.checkpoint); // Checkpoint info here
+			botLogger.info(ig.state.checkpoint.message); // Checkpoint info here
 			await ig.challenge.auto(true); // Requesting sms-code or click "It was me" button
-			botLogger.info(ig.state.challenge); // Challenge info here
 			const { code } = await inquirer.prompt([
 				{
 					type: "input",
