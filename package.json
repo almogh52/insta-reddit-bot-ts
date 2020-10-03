@@ -18,15 +18,15 @@
 	},
 	"homepage": "https://github.com/almogh52/insta-reddit-bot-ts#readme",
 	"devDependencies": {
-		"tslint": "^5.20.1"
+		"tslint": "^6.1.3"
 	},
 	"dependencies": {
-		"@types/inquirer": "^6.5.0",
-		"inquirer": "^7.1.0",
-		"instagram-private-api": "^1.39.1",
-		"jimp": "^0.9.6",
+		"@types/inquirer": "^7.3.1",
+		"inquirer": "^7.3.3",
+		"instagram-private-api": "^1.43.1",
+		"jimp": "^0.16.1",
 		"snoowrap": "^1.21.0",
-		"typescript": "^3.8.3",
-		"winston": "^3.2.1"
+		"typescript": "^4.0.3",
+		"winston": "^3.3.3"
 	}
 }
